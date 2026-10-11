@@ -3,6 +3,10 @@
 
 ### dotenv ###
 .env
+.env.*
+package-lock.json
+index copy.js
+server.log
 
 ### Node ###
 # Logs

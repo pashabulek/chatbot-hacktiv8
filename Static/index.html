@@ -1,20 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gemini AI Chatbot</title>
+  <title>Nusantara Voyage AI — Indonesian Travel Assistant</title>
   <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="container">
-    <h1>Gemini AI Chatbot</h1>
-    <div id="chat-box" class="chat-box"></div>
-    <form id="chat-form">
-      <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" required />
-      <button type="submit">Send</button>
-    </form>
+  <div class="app-layout">
+    <div class="container">
+      <header class="chat-header">
+        <div class="header-content">
+          <div class="avatar-badge">🌴</div>
+          <div class="header-text">
+            <h1>Nusantara Voyage AI</h1>
+            <p class="subtitle">Smart Indonesian Travel, Culinary & Itinerary Guide</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="status-indicator">
+            <span class="dot"></span> Online (Gemini 3.5 Flash Lite)
+          </span>
+          <button id="clear-btn" class="clear-btn" title="Reset Percakapan">Bersihkan Chat</button>
+        </div>
+      </header>
+
+      <!-- Tone / Persona Selector Controls -->
+      <div class="controls-bar">
+        <span class="control-label">Mode Perjalanan:</span>
+        <div class="tone-selector" id="tone-selector">
+          <button type="button" class="tone-btn active" data-tone="general">🌐 Umum</button>
+          <button type="button" class="tone-btn" data-tone="backpacker">🎒 Backpacker</button>
+          <button type="button" class="tone-btn" data-tone="leisure">🏖️ Leisure & Family</button>
+          <button type="button" class="tone-btn" data-tone="adventure">🧗 Petualang</button>
+        </div>
+      </div>
+
+      <!-- Main Chat Area -->
+      <div id="chat-box" class="chat-box">
+        <div class="welcome-card">
+          <h3>Halo, Petualang! 👋</h3>
+          <p>Saya asisten AI perjalanan nusantara Anda. Butuh inspirasi hidden gem, rekomendasi kuliner lokal, atau rute liburan hemat?</p>
+          <div class="suggestion-chips">
+            <button class="chip" data-prompt="Rekomendasikan hidden gems di Yogyakarta yang belum banyak diketahui wisatawan!">✨ Hidden gems di Jogja</button>
+            <button class="chip" data-prompt="Buatkan itinerary 3 hari 2 malam di Bali dengan budget hemat untuk backpacker.">🎒 Itinerary Bali hemat 3D2N</button>
+            <button class="chip" data-prompt="Apa saja 5 kuliner malam legendaris paling wajib dicoba di Bandung?">🍜 Kuliner malam Bandung</button>
+            <button class="chip" data-prompt="Berapa estimasi budget dan tips perjalanan pertama kali ke Labuan Bajo?">⛵ Budget ke Labuan Bajo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Form -->
+      <form id="chat-form">
+        <div class="input-wrapper">
+          <input type="text" id="user-input" placeholder="Tanyakan destinasi, itinerary, atau tips wisata..." autocomplete="off" required />
+          <button type="submit" id="send-btn" aria-label="Kirim Pesan">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <span>Kirim</span>
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>

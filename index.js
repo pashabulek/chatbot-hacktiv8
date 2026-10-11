@@ -1,102 +1,142 @@
-import "dotenv/config"; //Memuat file .env ke dalam environment variables (process.env). Ini digunakan agar API key atau konfigurasi sensitif lainnya tidak langsung ditulis di dalam kode.
-import { GoogleGenAI } from "@google/genai"; //Mengimpor kelas GoogleGenAI dari library @google/genai. Kelas ini digunakan untuk berinteraksi dengan model AI Gemini.
-import express from "express"; //Mengimpor library express untuk membuat server web.
-import fs from "fs"; //Mengimpor library fs untuk operasi file system.
-import multer from "multer"; //Mengimpor library multer untuk menangani upload file.
+import 'dotenv/config';
+import express from "express";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import { GoogleGenAI } from "@google/genai";
 
-// setup kode
-const app = express(); //Membuat instance aplikasi Express. Ini adalah objek utama yang akan digunakan untuk mengatur routing dan middleware.
-const upload = multer( {
-  limits: { 
-    fileSize: 10_000_000 //10MB
-  },
-}); //Membuat instance multer untuk menangani upload file.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY }); //Membuat instance dari GoogleGenAI dengan menggunakan API key yang diambil dari environment variables (process.env.API_KEY).
-const GEMINI_MODEL = "gemini-3.5-flash-lite" //Membuat konstanta GEMINI_MODEL yang menyimpan nama model AI yang akan digunakan.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-app.use(express.json()); //Middleware untuk mengizinkan aplikasi Express menerima request dengan body bertipe JSON. Ini diperlukan agar aplikasi dapat menerima data JSON dari client (misalnya dari Postman).
+const app = express();
+const PORT = process.env.PORT || 4848;
 
-const PORT = process.env.PORT || 4848 //Membuat konstanta PORT yang menyimpan nomor port yang akan digunakan. Jika environment variable PORT tidak tersedia, maka akan menggunakan port 4848.
-app.listen(PORT, () => { console.log(`Server Jalan di ${PORT}`); }); //Memulai server Express pada port yang telah ditentukan. Ketika server berhasil dimulai, akan mencetak pesan ke konsol.
+// Gemini Client Setup
+const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+if (!apiKey) {
+  console.warn("⚠️ PERINGATAN: GEMINI_API_KEY / API_KEY belum disetel di file .env");
+}
+const ai = new GoogleGenAI({ apiKey });
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
+// Middlewares
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'Static')));
 
+// System Instructions & Presets
+const SYSTEM_PROMPTS = {
+  general: `Kamu adalah 'Nusantara Voyage AI' (Bon Voyage Indonesia Travel Assistant), asisten AI pintar yang ahli dalam pariwisata, budaya, dan kuliner Indonesia.
+Karaktermu ramah, bersemangat, informatif, dan solutif.
+Tugas utamamu:
+1. Memberikan rekomendasi destinasi wisata di Indonesia (hidden gems maupun tempat populer).
+2. Merancang rencana perjalanan (itinerary) yang praktis, realistis, dan efisien.
+3. Memberikan rekomendasi kuliner lokal autentik dan oleh-oleh khas.
+4. Menyediakan perkiraan budget/biaya perjalanan (transportasi, penginapan, tiket masuk, makan).
+5. Berbagi tips keselamatan, etika lokal, dan musim terbaik untuk berkunjung.
+Gunakan gaya bahasa santai dan bersahabat (bahasa Indonesia yang natural), gunakan format markdown (bullet points, bold) agar mudah dibaca.`,
 
+  backpacker: `Kamu adalah 'Nusantara Voyage AI' mode BACKPACKER & BUDGET TRAVELER.
+Fokus utamamu adalah petualangan hemat dan efisien:
+- Rekomendasi transportasi umum termurah (kereta, bus, kapal feri lokal).
+- Rekomendasi hostel, guesthouse, atau homestay terjangkau.
+- Rekomendasi kuliner kaki lima, pasar tradisional, dan warung lokal murah meriah.
+- Tips menghemat biaya tiket, rute gratis, dan trik packing ringan.
+Gaya bahasa kasual, asik, suportif, dan penuh tips praktis.`,
 
+  leisure: `Kamu adalah 'Nusantara Voyage AI' mode LEISURE & FAMILY.
+Fokus utamamu adalah liburan santai, nyaman, dan ramah keluarga:
+- Destinasi ramah anak dan orang tua dengan akses mudah.
+- Rekomendasi hotel/resort bintang, villa nyaman, atau restoran legendaris.
+- Rute santai tanpa terburu-buru, fokus pada relaksasi dan kenyamanan.
+Gaya bahasa hangat, sopan, elegan, dan informatif.`,
 
-
-// END POINT
-app.post('/generate-text', async (req, res) => { //Definisi endpoint POST pada '/generate-text'. Ini berarti endpoint ini akan menerima request dengan metode POST.
-  const { prompt } = req.body; //Mengekstrak properti 'prompt' dari body request (req.body). Data ini akan digunakan sebagai input untuk model AI.
-
-  try { //Blok try digunakan untuk menangani potensi error selama eksekusi kode.
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt //Input prompt yang telah diekstrak dari request body akan dikirimkan ke model AI.
-    });
-
-    res.status(200).json({ result: response.text }); //Jika tidak ada error, server akan mengirimkan response dengan status 200 (OK) dan body berupa JSON yang berisi hasil generate content (response.text).
-
-  } catch (e) { // Blok catch akan dieksekusi jika terjadi error di dalam blok try. Di dalamnya terdapat kode untuk mencetak error ke konsol dan mengirimkan response error ke client.
-    console.log(e);
-    res.status(500).json({ message: e.message }); //Mengirimkan response dengan status 500 (Internal Server Error) dan body berupa JSON yang berisi pesan error.
-  };
-});
-
-// Helper Function
-// Fungsi ini bertanggung jawab memparsing file gambar dari multipart/form-data
-// dan mengubahnya menjadi format yang bisa dipahami oleh Gemini API (Part).
-const parseImageFile = (file) => { //Mendefinisikan fungsi parseImageFile yang menerima satu argumen file, yang merupakan objek file yang diunggah.
-  const mimeType = file.mimetype; //Mengambil tipe file dari objek file yang diunggah.
-  const buffer = file.buffer; // Data gambar mentah (bytes)
-
-  // Gemini API memerlukan struktur khusus untuk data biner
-  return {
-    inlineData: { // Mengembalikan objek dengan struktur inlineData.
-      data: buffer.toString("base64"), // Mengubah data biner menjadi string Base64.
-      mimeType: mimeType, // Menetapkan tipe mime dari file.
-    },
-  };
+  adventure: `Kamu adalah 'Nusantara Voyage AI' mode EXPLORER & ADVENTURE.
+Fokus utamamu adalah wisata alam bebas, eksplorasi alam, dan aktivitas menantang:
+- Spot hiking, gunung, air terjun tersembunyi, surfing, diving, dan caving di Indonesia.
+- Tips keselamatan fisik, logistik alam terbuka, dan perlengkapan wajib.
+- Destinasi eksotis yang jarang dikunjungi turis umum.
+Gaya bahasa bersemangat, energik, dan menginspirasi petualangan.`
 };
 
+// POST /api/chat endpoint
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { conversation, messages, prompt, tone = 'general', temperature, topP, topK } = req.body;
 
+    // Normalisasi input conversation
+    let history = conversation || messages || [];
 
-// END POINT 2
-app.post('/generate-image', upload.single("image"), async (req, res) => { //Definisi endpoint POST pada '/generate-image'. Ini berarti endpoint ini akan menerima request dengan metode POST.
-  const { prompt } = req.body; //Mengekstrak properti 'prompt' dari body request (req.body). Data ini akan digunakan sebagai input untuk model AI.
-  const base64Image = req.file.buffer.toString("base64"); //Mengubah data biner dari file yang diunggah menjadi string Base64. String ini kemudian akan digunakan sebagai input untuk model AI.
+    if (prompt && history.length === 0) {
+      history = [{ role: 'user', text: prompt }];
+    }
 
-  try { //Blok try digunakan untuk menangani potensi error selama eksekusi kode.
-    const result = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: [
-        { text: prompt, type: "text" },
-        { inlineData: { data: base64Image, mimeType: req.file.mimetype } }
-      ],
+    if (!Array.isArray(history) || history.length === 0) {
+      return res.status(400).json({ error: "Input percakapan tidak boleh kosong." });
+    }
+
+    // Format pesan sesuai spesifikasi Gemini SDK (@google/genai)
+    const contents = history.map(item => {
+      const role = item.role === 'model' || item.role === 'bot' || item.role === 'assistant' ? 'model' : 'user';
+      const text = item.text || item.content || item.message || '';
+      return {
+        role,
+        parts: [{ text }]
+      };
     });
 
-    res.status(200).json({ result: result.text }); //Jika tidak ada error, server akan mengirimkan response dengan status 200 (OK) dan body berupa JSON yang berisi hasil generate content (result.text).
-  } catch (e) {
-    console.log(e);
-    res.status(500).json({ message: e.message }); //Mengirimkan response dengan status 500 (Internal Server Error) dan body berupa JSON yang berisi pesan error.
+    // Konfigurasi parameter kreatif
+    const selectedSystemInstruction = SYSTEM_PROMPTS[tone] || SYSTEM_PROMPTS.general;
+    const finalTemp = typeof temperature === 'number' ? temperature : (tone === 'backpacker' ? 0.5 : tone === 'adventure' ? 0.9 : 0.7);
+    const finalTopP = typeof topP === 'number' ? topP : 0.95;
+    const finalTopK = typeof topK === 'number' ? topK : 40;
+
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents,
+      config: {
+        systemInstruction: selectedSystemInstruction,
+        temperature: finalTemp,
+        topP: finalTopP,
+        topK: finalTopK
+      }
+    });
+
+    const resultText = response.text || "Maaf, tidak ada respons yang dihasilkan.";
+    return res.status(200).json({
+      result: resultText,
+      model: GEMINI_MODEL,
+      meta: {
+        tone,
+        temperature: finalTemp
+      }
+    });
+
+  } catch (error) {
+    console.error("Error pada endpoint /api/chat:", error);
+    return res.status(500).json({
+      message: error.message || "Terjadi kesalahan pada server saat menghubungi Gemini AI.",
+      error: error.message
+    });
   }
 });
 
-
-// TODO > /generate-from-document
-app.post('/generate-from-document', upload.single("document"), async (req, res) => {
+// Backward-compatible endpoint from Session 2
+app.post('/generate-text', async (req, res) => {
   const { prompt } = req.body;
-  const base64Document = req.file.buffer.toString("base64");
+  if (!prompt) return res.status(400).json({ message: "Prompt is required" });
   try {
-    const result = await ai.models.generateContent({
+    const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
-      contents: [
-        { text: prompt ?? "Tolong buat ringkasan dari document ini!", type: "text" },
-        { inlineData: { data: base64Document, mimeType: req.file.mimetype } }
-      ],
+      contents: prompt
     });
-    res.status(200).json({ result: result.text });
+    res.status(200).json({ result: response.text });
   } catch (e) {
-    console.log(e);
+    console.error(e);
     res.status(500).json({ message: e.message });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server Nusantara Voyage AI berjalan di http://localhost:${PORT}`);
 });
