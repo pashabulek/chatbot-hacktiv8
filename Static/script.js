@@ -172,19 +172,41 @@ form.addEventListener('submit', async function (e) {
   showThinking();
 
   try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        conversation: conversationHistory,
-        tone: currentTone
-      }),
-    });
+    // Tentukan endpoint secara adaptif (mendukung http://localhost:3000, 4848, file://, atau Live Server)
+    const isDirectServer = window.location.protocol.startsWith('http') && 
+      (window.location.port === '3000' || window.location.port === '4848');
+    
+    let targetUrl = isDirectServer ? '/api/chat' : 'http://localhost:3000/api/chat';
+
+    let response;
+    try {
+      response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation: conversationHistory,
+          tone: currentTone
+        }),
+      });
+    } catch (err) {
+      // Jika port 3000 tidak merespons (misal saat dibuka via file://), coba port 4848
+      if (!isDirectServer) {
+        response = await fetch('http://localhost:4848/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation: conversationHistory,
+            tone: currentTone
+          }),
+        });
+      } else {
+        throw err;
+      }
+    }
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || `HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
@@ -198,7 +220,8 @@ form.addEventListener('submit', async function (e) {
   } catch (error) {
     console.error('Chat error:', error);
     removeThinking();
-    appendMessage('bot', '⚠️ Maaf, terjadi kesalahan saat menghubungi server AI. Pastikan server backend sedang berjalan dan periksa koneksi internet Anda.');
+    const detail = error.message ? ` (${error.message})` : '';
+    appendMessage('bot', `⚠️ Maaf, terjadi kesalahan saat menghubungi server AI${detail}. Pastikan server backend (node index.js) sudah dijalankan di terminal pada port 3000 atau 4848.`);
   } finally {
     isThinking = false;
     sendBtn.disabled = false;

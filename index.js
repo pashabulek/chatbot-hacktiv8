@@ -9,7 +9,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 4848;
+const PRIMARY_PORT = parseInt(process.env.PORT, 10) || 3000;
+const ALT_PORT = PRIMARY_PORT === 3000 ? 4848 : 3000;
 
 // Gemini Client Setup
 const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
@@ -137,6 +138,16 @@ app.post('/generate-text', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server Nusantara Voyage AI berjalan di http://localhost:${PORT}`);
+const server1 = app.listen(PRIMARY_PORT, () => {
+  console.log(`Server Nusantara Voyage AI berjalan di http://localhost:${PRIMARY_PORT}`);
+});
+server1.on('error', (err) => {
+  console.warn(`Port ${PRIMARY_PORT} info: ${err.message}`);
+});
+
+const server2 = app.listen(ALT_PORT, () => {
+  console.log(`Server juga aktif di http://localhost:${ALT_PORT}`);
+});
+server2.on('error', (err) => {
+  // port fallback silent ignore
 });
